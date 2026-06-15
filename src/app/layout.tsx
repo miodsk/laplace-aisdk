@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ChatSidebar, type ChatListItem } from "@/components/ChatSidebar";
-import { loadChats } from "@/lib/chat-store";
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -15,37 +13,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-    title: "AI Chat",
-    description: "A simple AI chatbot",
+    title: "知识资产工作台",
+    description: "企业内部知识库 RAG 问答与资产管理工作台",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
     children,
 }: Readonly<{
     children: React.ReactNode;
 }>) {
-    const chats = await loadChats();
-    const items: ChatListItem[] = chats
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-        .map(c => {
-            const firstUserText = c.messages
-                .find(m => m.role === 'user')
-                ?.parts.find(p => p.type === 'text')?.text;
-            return {
-                id: c.id,
-                title: firstUserText?.slice(0, 30),
-                updatedAt: c.updatedAt,
-                messageCount: c.messages.length,
-            };
-        });
-
     return (
         <html
-            lang="en"
+            lang="zh-CN"
             className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
         >
-            <body className="min-h-full flex flex-col">
-                <ChatSidebar chats={items} />
+            <body className="bg-background text-foreground min-h-full">
                 {children}
             </body>
         </html>

@@ -1,218 +1,414 @@
-import React from 'react';
-import ReactMarkdown from 'react-markdown';
-import type { ToolMessage } from '@/app/api/chat/route.ts';
+"use client";
 
-export const Wrapper = (props: {
-    children: React.ReactNode;
-}) => {
-    return (
-        <div className="flex flex-col w-full max-w-md py-24 mx-auto stretch">
-            {props.children}
-        </div>
-    );
-};
+import * as React from 'react';
+import {
+    ChainOfThought,
+    ChainOfThoughtContent,
+    ChainOfThoughtHeader,
+    ChainOfThoughtSearchResult,
+    ChainOfThoughtSearchResults,
+    ChainOfThoughtStep,
+} from '@/components/ai-elements/chain-of-thought';
+import {
+    Source,
+    Sources,
+    SourcesContent,
+    SourcesTrigger,
+} from '@/components/ai-elements/sources';
+import {
+    Tool,
+    ToolContent,
+    ToolHeader,
+    ToolInput,
+    ToolOutput,
+} from '@/components/ai-elements/tool';
+import { Badge } from '@/components/ui/badge';
+import { BookOpen, Database, FileText, Search } from 'lucide-react';
+import type { ToolMessage } from '@/lib/chat-tools';
 
-export function ToolPart({ part }: { part: ToolMessage['parts'][number] }) {
+interface SearchHit {
+    id: string;
+    title: string;
+    tags: string[];
+    snippet: string;
+    score: number;
+    contentLength: number;
+}
+
+interface SearchKnowledgeOutput {
+    query: string;
+    count: number;
+    hits: SearchHit[];
+}
+
+interface AssetOutput {
+    id: string;
+    title: string;
+    tags: string[];
+    content?: string;
+    contentLength?: number;
+    createdAt?: string;
+}
+
+interface ListAssetsOutputItem {
+    id: string;
+    title: string;
+    tags: string[];
+}
+
+function getOutput<T>(part: ToolMessage['parts'][number]): T | null {
+    if ('state' in part && part.state === 'output-available') {
+        return part.output as T;
+    }
+    return null;
+}
+
+function getInput(part: ToolMessage['parts'][number]): unknown {
+    if ('input' in part) return part.input;
+    return null;
+}
+
+function getState(part: ToolMessage['parts'][number]) {
+    if ('state' in part) return part.state;
+    return 'output-available' as const;
+}
+
+type ToolState = Parameters<typeof ToolHeader>[0]['state'];
+
+function toToolState(
+    s: ReturnType<typeof getState>,
+): ToolState {
+    if (
+        s === 'input-streaming' ||
+        s === 'input-available' ||
+        s === 'approval-requested' ||
+        s === 'approval-responded' ||
+        s === 'output-available' ||
+        s === 'output-error' ||
+        s === 'output-denied'
+    ) {
+        return s;
+    }
+    return 'output-available';
+}
+
+export function ToolPart({
+    part,
+}: {
+    part: ToolMessage['parts'][number];
+}) {
     switch (part.type) {
         case 'tool-writeFile':
             return (
-                <div className="bg-blue-900/20 border border-blue-700 rounded p-3 text-sm">
-                    <div className="font-semibold text-blue-300 mb-1">📝 Wrote to file</div>
-                    <div className="text-blue-200">Path: {part.input?.filePath ?? 'Unknown'}</div>
-                    <div className="text-blue-200">Content length: {part.input?.content?.length ?? 0} characters</div>
-                </div>
+                <Tool defaultOpen={false}>
+                    <ToolHeader
+                        type={part.type}
+                        state={toToolState(getState(part))}
+                        title="writeFile"
+                    />
+                    <ToolContent>
+                        <ToolInput input={getInput(part)} />
+                        <ToolOutput
+                            output={getOutput(part)}
+                            errorText={
+                                'errorText' in part
+                                    ? part.errorText
+                                    : undefined
+                            }
+                        />
+                    </ToolContent>
+                </Tool>
             );
         case 'tool-readFile':
             return (
-                <div className="bg-green-900/20 border border-green-700 rounded p-3 text-sm">
-                    <div className="font-semibold text-green-300 mb-1">📖 Read file</div>
-                    <div className="text-green-200">Path: {part.input?.filePath ?? 'Unknown'}</div>
-                </div>
+                <Tool defaultOpen={false}>
+                    <ToolHeader
+                        type={part.type}
+                        state={toToolState(getState(part))}
+                        title="readFile"
+                    />
+                    <ToolContent>
+                        <ToolInput input={getInput(part)} />
+                        <ToolOutput
+                            output={getOutput(part)}
+                            errorText={
+                                'errorText' in part
+                                    ? part.errorText
+                                    : undefined
+                            }
+                        />
+                    </ToolContent>
+                </Tool>
             );
         case 'tool-deletePath':
             return (
-                <div className="bg-red-900/20 border border-red-700 rounded p-3 text-sm">
-                    <div className="font-semibold text-red-300 mb-1">🗑️ Deleted path</div>
-                    <div className="text-red-200">Path: {part.input?.pathToDelete ?? 'Unknown'}</div>
-                </div>
+                <Tool defaultOpen={false}>
+                    <ToolHeader
+                        type={part.type}
+                        state={toToolState(getState(part))}
+                        title="deletePath"
+                    />
+                    <ToolContent>
+                        <ToolInput input={getInput(part)} />
+                        <ToolOutput
+                            output={getOutput(part)}
+                            errorText={
+                                'errorText' in part
+                                    ? part.errorText
+                                    : undefined
+                            }
+                        />
+                    </ToolContent>
+                </Tool>
             );
         case 'tool-listDirectory':
             return (
-                <div className="bg-yellow-900/20 border border-yellow-700 rounded p-3 text-sm">
-                    <div className="font-semibold text-yellow-300 mb-1">📁 Listed directory</div>
-                    <div className="text-yellow-200">Path: {part.input?.dirPath ?? '.'}</div>
-                </div>
+                <Tool defaultOpen={false}>
+                    <ToolHeader
+                        type={part.type}
+                        state={toToolState(getState(part))}
+                        title="listDirectory"
+                    />
+                    <ToolContent>
+                        <ToolInput input={getInput(part)} />
+                        <ToolOutput
+                            output={getOutput(part)}
+                            errorText={
+                                'errorText' in part
+                                    ? part.errorText
+                                    : undefined
+                            }
+                        />
+                    </ToolContent>
+                </Tool>
             );
         case 'tool-createDirectory':
             return (
-                <div className="bg-purple-900/20 border border-purple-700 rounded p-3 text-sm">
-                    <div className="font-semibold text-purple-300 mb-1">📂 Created directory</div>
-                    <div className="text-purple-200">Path: {part.input?.dirPath ?? 'Unknown'}</div>
-                </div>
+                <Tool defaultOpen={false}>
+                    <ToolHeader
+                        type={part.type}
+                        state={toToolState(getState(part))}
+                        title="createDirectory"
+                    />
+                    <ToolContent>
+                        <ToolInput input={getInput(part)} />
+                        <ToolOutput
+                            output={getOutput(part)}
+                            errorText={
+                                'errorText' in part
+                                    ? part.errorText
+                                    : undefined
+                            }
+                        />
+                    </ToolContent>
+                </Tool>
             );
         case 'tool-exists':
             return (
-                <div className="bg-cyan-900/20 border border-cyan-700 rounded p-3 text-sm">
-                    <div className="font-semibold text-cyan-300 mb-1">🔍 Checked existence</div>
-                    <div className="text-cyan-200">Path: {part.input?.pathToCheck ?? 'Unknown'}</div>
-                </div>
+                <Tool defaultOpen={false}>
+                    <ToolHeader
+                        type={part.type}
+                        state={toToolState(getState(part))}
+                        title="exists"
+                    />
+                    <ToolContent>
+                        <ToolInput input={getInput(part)} />
+                        <ToolOutput
+                            output={getOutput(part)}
+                            errorText={
+                                'errorText' in part
+                                    ? part.errorText
+                                    : undefined
+                            }
+                        />
+                    </ToolContent>
+                </Tool>
             );
         case 'tool-searchFiles':
             return (
-                <div className="bg-orange-900/20 border border-orange-700 rounded p-3 text-sm">
-                    <div className="font-semibold text-orange-300 mb-1">🔎 Searched files</div>
-                    <div className="text-orange-200">Pattern: {part.input?.pattern ?? 'Unknown'}</div>
-                </div>
+                <Tool defaultOpen={false}>
+                    <ToolHeader
+                        type={part.type}
+                        state={toToolState(getState(part))}
+                        title="searchFiles"
+                    />
+                    <ToolContent>
+                        <ToolInput input={getInput(part)} />
+                        <ToolOutput
+                            output={getOutput(part)}
+                            errorText={
+                                'errorText' in part
+                                    ? part.errorText
+                                    : undefined
+                            }
+                        />
+                    </ToolContent>
+                </Tool>
             );
+
+        case 'tool-listAssets': {
+            const output = getOutput<ListAssetsOutputItem[]>(part);
+            return (
+                <ChainOfThought defaultOpen={!!output}>
+                    <ChainOfThoughtHeader>
+                        列出知识库
+                    </ChainOfThoughtHeader>
+                    <ChainOfThoughtContent>
+                        <ChainOfThoughtStep
+                            icon={Database}
+                            label="listAssets"
+                            description={
+                                output
+                                    ? `共 ${output.length} 条`
+                                    : '执行中…'
+                            }
+                            status={output ? 'complete' : 'active'}
+                        >
+                            {output && output.length > 0 && (
+                                <ChainOfThoughtSearchResults>
+                                    {output.slice(0, 12).map((a) => (
+                                        <ChainOfThoughtSearchResult
+                                            key={a.id}
+                                        >
+                                            [{a.id}] {a.title}
+                                        </ChainOfThoughtSearchResult>
+                                    ))}
+                                </ChainOfThoughtSearchResults>
+                            )}
+                        </ChainOfThoughtStep>
+                    </ChainOfThoughtContent>
+                </ChainOfThought>
+            );
+        }
+
+        case 'tool-searchKnowledge': {
+            const output = getOutput<SearchKnowledgeOutput>(part);
+            const query = output?.query ?? (getInput(part) as { query?: string } | null)?.query;
+            return (
+                <ChainOfThought defaultOpen={!!output}>
+                    <ChainOfThoughtHeader>
+                        检索知识库
+                    </ChainOfThoughtHeader>
+                    <ChainOfThoughtContent>
+                        <ChainOfThoughtStep
+                            icon={Search}
+                            label="searchKnowledge"
+                            description={
+                                output
+                                    ? `query: "${query}" · 命中 ${output.count} 条`
+                                    : `query: "${query ?? '...'}" · 执行中…`
+                            }
+                            status={output ? 'complete' : 'active'}
+                        >
+                            {output && output.hits.length > 0 && (
+                                <ChainOfThoughtSearchResults>
+                                    {output.hits.map((hit, i) => (
+                                        <ChainOfThoughtSearchResult
+                                            key={hit.id}
+                                        >
+                                            [{i + 1}] {hit.title} · score {hit.score}
+                                        </ChainOfThoughtSearchResult>
+                                    ))}
+                                </ChainOfThoughtSearchResults>
+                            )}
+                        </ChainOfThoughtStep>
+                    </ChainOfThoughtContent>
+                </ChainOfThought>
+            );
+        }
+
+        case 'tool-readAsset': {
+            const output = getOutput<AssetOutput>(part);
+            return (
+                <ChainOfThought defaultOpen={!!output}>
+                    <ChainOfThoughtHeader>
+                        读取知识资产
+                    </ChainOfThoughtHeader>
+                    <ChainOfThoughtContent>
+                        <ChainOfThoughtStep
+                            icon={BookOpen}
+                            label="readAsset"
+                            description={
+                                output
+                                    ? `#${output.id} · ${output.title}`
+                                    : `执行中…`
+                            }
+                            status={output ? 'complete' : 'active'}
+                        >
+                            {output?.tags && output.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                    {output.tags.map((t) => (
+                                        <Badge
+                                            key={t}
+                                            variant="secondary"
+                                            className="font-normal"
+                                        >
+                                            {t}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            )}
+                        </ChainOfThoughtStep>
+                    </ChainOfThoughtContent>
+                </ChainOfThought>
+            );
+        }
+
         default:
             return null;
     }
 }
 
-export const Message = ({
-                            role,
-                            parts,
-                        }: {
-    role: string;
-    parts: ToolMessage['parts'];
-}) => {
-    const prefix = role === 'user' ? 'User: ' : 'AI: ';
+export interface Citation {
+    index: number;
+    id: string;
+    title: string;
+    snippet?: string;
+}
 
-    const text = parts
-        .map((part) => {
-            if (part.type === 'text') {
-                return part.text;
-            }
-            return '';
-        })
-        .join('');
+export function CitationFooter({ citations }: { citations: Citation[] }) {
+    if (citations.length === 0) return null;
     return (
-        <div className="flex flex-col gap-2">
-            <div className="prose prose-invert my-6">
-                <ReactMarkdown>{prefix + text}</ReactMarkdown>
-            </div>
-            {parts.map((part, index) => {
-                if (part.type === 'tool-writeFile') {
-                    return (
-                        <div
-                            key={index}
-                            className="bg-blue-900/20 border border-blue-700 rounded p-3 text-sm"
-                        >
-                            <div className="font-semibold text-blue-300 mb-1">
-                                📝 Wrote to file
-                            </div>
-                            <div className="text-blue-200">
-                                Path: {part.input?.filePath ?? 'Unknown'}
-                            </div>
-                            <div className="text-blue-200">
-                                Content length:{' '}
-                                {part.input?.content?.length ?? 0} characters
-                            </div>
-                        </div>
-                    );
-                }
-                if (part.type === 'tool-readFile') {
-                    return (
-                        <div
-                            key={index}
-                            className="bg-green-900/20 border border-green-700 rounded p-3 text-sm"
-                        >
-                            <div className="font-semibold text-green-300 mb-1">
-                                📖 Read file
-                            </div>
-                            <div className="text-green-200">
-                                Path: {part.input?.filePath ?? 'Unknown'}
-                            </div>
-                        </div>
-                    );
-                }
-                if (part.type === 'tool-deletePath') {
-                    return (
-                        <div
-                            key={index}
-                            className="bg-red-900/20 border border-red-700 rounded p-3 text-sm"
-                        >
-                            <div className="font-semibold text-red-300 mb-1">
-                                🗑️ Deleted path
-                            </div>
-                            <div className="text-red-200">
-                                Path: {part.input?.pathToDelete ?? 'Unknown'}
-                            </div>
-                        </div>
-                    );
-                }
-                if (part.type === 'tool-listDirectory') {
-                    return (
-                        <div
-                            key={index}
-                            className="bg-yellow-900/20 border border-yellow-700 rounded p-3 text-sm"
-                        >
-                            <div className="font-semibold text-yellow-300 mb-1">
-                                📁 Listed directory
-                            </div>
-                            <div className="text-yellow-200">
-                                Path: {part.input?.dirPath ?? '.'}
-                            </div>
-                        </div>
-                    );
-                }
-                if (part.type === 'tool-createDirectory') {
-                    return (
-                        <div
-                            key={index}
-                            className="bg-purple-900/20 border border-purple-700 rounded p-3 text-sm"
-                        >
-                            <div className="font-semibold text-purple-300 mb-1">
-                                📂 Created directory
-                            </div>
-                            <div className="text-purple-200">
-                                Path: {part.input?.dirPath ?? 'Unknown'}
-                            </div>
-                        </div>
-                    );
-                }
-                if (part.type === 'tool-exists') {
-                    return (
-                        <div
-                            key={index}
-                            className="bg-cyan-900/20 border border-cyan-700 rounded p-3 text-sm"
-                        >
-                            <div className="font-semibold text-cyan-300 mb-1">
-                                🔍 Checked existence
-                            </div>
-                            <div className="text-cyan-200">
-                                Path: {part.input?.pathToCheck ?? 'Unknown'}
-                            </div>
-                        </div>
-                    );
-                }
-                if (part.type === 'tool-searchFiles') {
-                    return (
-                        <div
-                            key={index}
-                            className="bg-orange-900/20 border border-orange-700 rounded p-3 text-sm"
-                        >
-                            <div className="font-semibold text-orange-300 mb-1">
-                                🔎 Searched files
-                            </div>
-                            <div className="text-orange-200">
-                                Pattern: {part.input?.pattern || 'Unknown'}
-                            </div>
-                        </div>
-                    );
-                }
-                return null;
-            })}
-        </div>
+        <Sources className="not-prose mt-3">
+            <SourcesTrigger count={citations.length}>
+                <span className="text-foreground/70 font-medium">
+                    引用 {citations.length} 条
+                </span>
+            </SourcesTrigger>
+            <SourcesContent>
+                {citations.map((c) => (
+                    <Source
+                        key={c.id}
+                        title={`[${c.index}] ${c.title}`}
+                        href="#"
+                        onClick={(e) => e.preventDefault()}
+                    >
+                        <FileText className="text-muted-foreground size-3.5" />
+                        <span className="text-foreground/80 block font-medium">
+                            [{c.index}] {c.title}
+                        </span>
+                        {c.snippet && (
+                            <span className="text-muted-foreground block max-w-md text-xs">
+                                {c.snippet}
+                            </span>
+                        )}
+                    </Source>
+                ))}
+            </SourcesContent>
+        </Sources>
     );
-};
+}
+
+export const Wrapper = (props: { children: React.ReactNode }) => (
+    <div className="flex w-full flex-col">{props.children}</div>
+);
 
 export const ChatInput = ({
-                              input,
-                              onChange,
-                              onSubmit,
-                              disabled,
-                          }: {
+    input,
+    onChange,
+    onSubmit,
+    disabled,
+}: {
     input: string;
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onSubmit: (e: React.FormEvent) => void;

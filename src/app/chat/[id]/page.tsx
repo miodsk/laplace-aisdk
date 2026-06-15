@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getChat } from '@/lib/chat-store';
 import { ChatView } from '@/components/ChatView';
-import type { ToolMessage } from '@/app/api/chat/route';
+import type { ToolMessage } from '@/lib/chat-tools';
 
 export default async function Page({
     params,

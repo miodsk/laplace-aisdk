@@ -1,8 +1,9 @@
-import { loadChats } from "@/lib/chat-store";
+import { Suspense } from 'react';
+import { loadChats } from '@/lib/chat-store';
 import {
     type ChatListItem,
-} from "@/components/ChatSidebar";
-import { WorkbenchTabs } from "@/components/WorkbenchTabs";
+} from '@/components/ChatSidebar';
+import { WorkbenchTabs } from '@/components/WorkbenchTabs';
 
 export default async function WorkbenchPage() {
     const chats = await loadChats();
@@ -10,8 +11,8 @@ export default async function WorkbenchPage() {
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
         .map((c) => {
             const firstUserText = c.messages
-                .find((m) => m.role === "user")
-                ?.parts.find((p) => p.type === "text")?.text;
+                .find((m) => m.role === 'user')
+                ?.parts.find((p) => p.type === 'text')?.text;
             return {
                 id: c.id,
                 title: firstUserText?.slice(0, 30),
@@ -19,5 +20,9 @@ export default async function WorkbenchPage() {
                 messageCount: c.messages.length,
             };
         });
-    return <WorkbenchTabs chats={items} />;
+    return (
+        <Suspense fallback={null}>
+            <WorkbenchTabs chats={items} />
+        </Suspense>
+    );
 }
